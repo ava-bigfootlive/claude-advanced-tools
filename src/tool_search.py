@@ -56,23 +56,27 @@ class ToolSearchProvider:
             "name": "tool_search"
         }
 
-    def get_deferred_tools(self, include_examples: bool = True) -> list[dict]:
+    def get_deferred_tools(self) -> list[dict]:
         """
-        Returns all tools with defer_loading: true.
+        Returns all tools as minimal stubs with defer_loading: true.
 
-        These tools won't be loaded into context until discovered.
+        These are just name + brief description - NOT full schemas.
+        This is the key to achieving 90%+ token savings.
         """
-        return self.registry.get_deferred_tools(include_examples=include_examples)
+        return self.registry.get_deferred_tools()
 
-    def build_tools_payload(self, include_examples: bool = True) -> list[dict]:
+    def build_tools_payload(self) -> list[dict]:
         """
         Build the complete tools payload for Claude API.
 
         Returns:
-            [meta_tool, deferred_tool_1, deferred_tool_2, ...]
+            [meta_tool, deferred_stub_1, deferred_stub_2, ...]
+
+        The meta_tool enables search, deferred stubs are minimal (name + description only).
+        Full schemas are loaded on-demand when tools are discovered.
         """
         tools = [self.get_meta_tool()]
-        tools.extend(self.get_deferred_tools(include_examples=include_examples))
+        tools.extend(self.get_deferred_tools())
         return tools
 
     def search(self, query: str, max_results: int = 5) -> list[dict]:
@@ -228,17 +232,32 @@ class ToolSearchSimulator:
             "content": results
         }
 
-    def expand_references(self, references: list[dict]) -> list[dict]:
+    def expand_references(
+        self,
+        references: list[dict],
+        include_examples: bool = True
+    ) -> list[dict]:
         """
         Expand tool_reference blocks to full tool definitions.
 
         This simulates what the API does when Claude uses discovered tools.
+        The full schema is only loaded now, after the tool is discovered.
+
+        Args:
+            references: List of tool_reference blocks from search
+            include_examples: Whether to include input_examples in expansion
+
+        Returns:
+            List of full tool definitions for discovered tools
         """
         expanded = []
         for ref in references:
             if ref.get("type") == "tool_reference":
                 tool_name = ref.get("tool_name")
-                tool = self.provider.registry.get_tool(tool_name)
+                tool = self.provider.registry.get_full_tool(
+                    tool_name,
+                    include_examples=include_examples
+                )
                 if tool:
                     expanded.append(tool)
         return expanded

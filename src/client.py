@@ -231,12 +231,11 @@ class AdvancedToolClient:
     def _build_tools_payload(self) -> list[dict]:
         """Build tools list based on configuration."""
         if self.use_tool_search:
-            # Phase 2: Deferred loading
-            return self.search_provider.build_tools_payload(
-                include_examples=self.use_examples
-            )
+            # Phase 2: Deferred loading - only sends name + brief description
+            # Full schemas loaded on-demand when tools are discovered
+            return self.search_provider.build_tools_payload()
         else:
-            # Traditional: Load all tools immediately
+            # Traditional: Load all tools immediately (higher token usage)
             return self.registry.get_tools_for_api(
                 include_examples=self.use_examples
             )

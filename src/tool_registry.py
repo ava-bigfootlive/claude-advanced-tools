@@ -129,26 +129,60 @@ class ToolRegistry:
 
         return result
 
-    def get_deferred_tools(self, include_examples: bool = True) -> list[dict]:
+    def get_deferred_tools(self, max_description_length: int = 150) -> list[dict]:
         """
         Get tools formatted for deferred loading (Phase 2: Tool Search).
 
-        Each tool is marked with defer_loading: true so it won't be loaded
-        into context until discovered via tool search.
+        Returns ONLY name + truncated description. Full schemas are NOT included.
+        This is the key to achieving 90%+ token savings - only load full
+        definitions when a tool is actually discovered via search.
 
         Args:
-            include_examples: Whether to include input_examples
+            max_description_length: Truncate descriptions longer than this
 
         Returns:
-            List of deferred tool definitions
+            List of minimal tool stubs with defer_loading: true
         """
         deferred = []
-        for tool in self.get_tools_for_api(include_examples=include_examples):
+        for name, tool in self.tools.items():
+            description = tool["description"]
+            if len(description) > max_description_length:
+                description = description[:max_description_length].rsplit(' ', 1)[0] + "..."
+
             deferred.append({
-                **tool,
+                "name": name,
+                "description": description,
                 "defer_loading": True
             })
         return deferred
+
+    def get_full_tool(self, name: str, include_examples: bool = True) -> dict | None:
+        """
+        Get full tool definition for a specific tool.
+
+        Used to expand a deferred tool after it's discovered via search.
+
+        Args:
+            name: Tool name to retrieve
+            include_examples: Whether to include input_examples
+
+        Returns:
+            Full tool definition or None if not found
+        """
+        tool = self.tools.get(name)
+        if not tool:
+            return None
+
+        result = {
+            "name": tool["name"],
+            "description": tool["description"],
+            "input_schema": tool["input_schema"]
+        }
+
+        if include_examples and "input_examples" in tool:
+            result["input_examples"] = tool["input_examples"]
+
+        return result
 
     def search_tools(self, query: str) -> list[str]:
         """

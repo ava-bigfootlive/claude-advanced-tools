@@ -143,11 +143,18 @@ class TestToolRegistry:
         assert "input_examples" not in without_examples[0]
 
     def test_get_deferred_tools(self):
-        """Test deferred loading format adds defer_loading flag."""
+        """Test deferred loading returns minimal stubs, not full definitions."""
         tool = {
             "name": "deferred_test",
-            "description": "Test deferred loading",
-            "input_schema": {"type": "object", "properties": {}}
+            "description": "Test deferred loading with a much longer description to verify truncation",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "param1": {"type": "string"},
+                    "param2": {"type": "integer"}
+                }
+            },
+            "input_examples": [{"param1": "test", "param2": 42}]
         }
         self.registry.register(tool)
 
@@ -156,6 +163,34 @@ class TestToolRegistry:
         assert len(deferred) == 1
         assert deferred[0]["defer_loading"] is True
         assert deferred[0]["name"] == "deferred_test"
+        assert "description" in deferred[0]
+        # Critical: NO full schema or examples - that's the whole point!
+        assert "input_schema" not in deferred[0]
+        assert "input_examples" not in deferred[0]
+
+    def test_get_full_tool(self):
+        """Test getting full tool definition for expansion."""
+        tool = {
+            "name": "expand_test",
+            "description": "Test full tool retrieval",
+            "input_schema": {"type": "object", "properties": {"x": {"type": "string"}}},
+            "input_examples": [{"x": "example"}]
+        }
+        self.registry.register(tool)
+
+        # Get with examples
+        full = self.registry.get_full_tool("expand_test", include_examples=True)
+        assert full["name"] == "expand_test"
+        assert "input_schema" in full
+        assert "input_examples" in full
+
+        # Get without examples
+        no_examples = self.registry.get_full_tool("expand_test", include_examples=False)
+        assert "input_schema" in no_examples
+        assert "input_examples" not in no_examples
+
+        # Non-existent tool
+        assert self.registry.get_full_tool("not_there") is None
 
     def test_search_tools(self):
         """Test simple tool search."""

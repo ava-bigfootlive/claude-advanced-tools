@@ -89,25 +89,35 @@ class TestToolSearchProvider:
         assert meta_tool["name"] == "tool_search"
 
     def test_get_deferred_tools(self):
-        """Test deferred tools have defer_loading flag."""
+        """Test deferred tools are minimal stubs, not full definitions."""
         provider = ToolSearchProvider(self.registry)
         deferred = provider.get_deferred_tools()
 
         assert len(deferred) == 5
         for tool in deferred:
             assert tool["defer_loading"] is True
+            assert "name" in tool
+            assert "description" in tool
+            # These should NOT be present - that's the whole point of deferred loading!
+            assert "input_schema" not in tool
+            assert "input_examples" not in tool
 
     def test_build_tools_payload(self):
-        """Test complete tools payload structure."""
+        """Test complete tools payload structure - truly deferred (minimal stubs)."""
         provider = ToolSearchProvider(self.registry)
-        payload = provider.build_tools_payload(include_examples=True)
+        payload = provider.build_tools_payload()
 
         # First item is meta-tool
         assert payload[0]["type"].startswith("tool_search_tool_")
 
-        # Rest are deferred tools
+        # Rest are deferred tools - should be MINIMAL stubs, not full definitions
         for tool in payload[1:]:
             assert tool["defer_loading"] is True
+            assert "name" in tool
+            assert "description" in tool
+            # Critically: NO full input_schema - that's the whole point of deferred loading!
+            assert "input_schema" not in tool
+            assert "input_examples" not in tool
 
     def test_regex_search_basic(self):
         """Test regex search finds exact matches."""
